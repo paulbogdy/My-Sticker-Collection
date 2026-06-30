@@ -2,6 +2,8 @@ import type { InventoryItem } from './lib/db'
 
 export type WorkMode = 'collection' | 'duplicates'
 
+export type SyncImportMode = 'missing' | 'spares'
+
 export type Screen = WorkMode | 'sync' | 'albums'
 
 export type FilterMode = 'all' | 'missing' | 'owned' | 'duplicates'

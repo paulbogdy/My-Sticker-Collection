@@ -1,16 +1,16 @@
 import { Copy, Download, RotateCcw, Upload } from 'lucide-react'
-import type { WorkMode } from '../types'
+import type { SyncImportMode } from '../types'
 
 type SyncScreenProps = {
   importText: string
   message: string
-  workMode: WorkMode
+  importMode: SyncImportMode
   setImportText: (value: string) => void
-  setWorkMode: (value: WorkMode) => void
+  setImportMode: (value: SyncImportMode) => void
   importCodes: () => void
   copyText: (text: string, label: string) => void
-  exportCollection: () => string
-  exportDuplicates: () => string
+  exportMissing: () => string
+  exportSpares: () => string
   downloadBackup: () => void
   resetAlbum: () => void
 }
@@ -18,13 +18,13 @@ type SyncScreenProps = {
 export function SyncScreen({
   importText,
   message,
-  workMode,
+  importMode,
   setImportText,
-  setWorkMode,
+  setImportMode,
   importCodes,
   copyText,
-  exportCollection,
-  exportDuplicates,
+  exportMissing,
+  exportSpares,
   downloadBackup,
   resetAlbum,
 }: SyncScreenProps) {
@@ -36,11 +36,11 @@ export function SyncScreen({
       </div>
       <div className="sync-panel">
         <div className="segments import-target" role="tablist" aria-label="Import target">
-          {(['collection', 'duplicates'] as const).map((mode) => (
+          {(['missing', 'spares'] as const).map((mode) => (
             <button
               key={mode}
-              className={workMode === mode ? 'active' : ''}
-              onClick={() => setWorkMode(mode)}
+              className={importMode === mode ? 'active' : ''}
+              onClick={() => setImportMode(mode)}
               type="button"
             >
               {mode}
@@ -50,28 +50,28 @@ export function SyncScreen({
         <textarea
           value={importText}
           onChange={(event) => setImportText(event.target.value)}
-          placeholder={`Paste ${workMode} codes: MEX11, SUI20, FWC1`}
+          placeholder={`Paste LastSticker ${importMode} codes: MEX11, SUI20, FWC1`}
           rows={5}
         />
         <button className="primary-action" type="button" onClick={importCodes}>
-          <Upload size={18} /> Import to {workMode}
+          <Upload size={18} /> Import {importMode}
         </button>
         <p className="status-line">{message}</p>
       </div>
 
       <div className="action-list">
-        <button type="button" onClick={() => copyText(exportCollection(), 'Collection export')}>
+        <button type="button" onClick={() => copyText(exportMissing(), 'Missing export')}>
           <Copy size={18} />
           <span>
-            <strong>Copy collection</strong>
-            <small>Comma-separated owned stickers</small>
+            <strong>Copy missing</strong>
+            <small>Stickers still needed for LastSticker</small>
           </span>
         </button>
-        <button type="button" onClick={() => copyText(exportDuplicates(), 'Duplicates export')}>
+        <button type="button" onClick={() => copyText(exportSpares(), 'Spares export')}>
           <Copy size={18} />
           <span>
-            <strong>Copy duplicates</strong>
-            <small>Repeats duplicate codes by quantity</small>
+            <strong>Copy spares</strong>
+            <small>Uses LastSticker quantities like MEX6(2)</small>
           </span>
         </button>
         <button type="button" onClick={downloadBackup}>

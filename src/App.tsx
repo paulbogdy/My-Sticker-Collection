@@ -13,8 +13,8 @@ import { StickerSection } from './components/StickerSection'
 import { SyncScreen } from './components/SyncScreen'
 import { albums, getAlbumStickers } from './data/albums'
 import { db, makeInventoryId, type InventoryItem } from './lib/db'
-import { formatStickerCodes, parseStickerCodes, repeatedCodes } from './lib/stickerText'
-import type { AlbumStats, FilterMode, Screen, WorkMode } from './types'
+import { formatStickerCodes, formatStickerQuantities, parseStickerCodes } from './lib/stickerText'
+import type { AlbumStats, FilterMode, Screen, SyncImportMode, WorkMode } from './types'
 
 const now = () => new Date().toISOString()
 
@@ -36,6 +36,7 @@ function App() {
   const stickerCodes = useMemo(() => new Set(stickers.map((sticker) => sticker.code)), [stickers])
   const [items, setItems] = useState<Record<string, InventoryItem>>({})
   const [workMode, setWorkMode] = useState<WorkMode>('collection')
+  const [syncImportMode, setSyncImportMode] = useState<SyncImportMode>('missing')
   const [screen, setScreen] = useState<Screen>('collection')
   const [filter, setFilter] = useState<FilterMode>('all')
   const [importText, setImportText] = useState('')
@@ -145,34 +146,39 @@ function App() {
       return accumulator
     }, {})
 
+    if (syncImportMode === 'missing') {
+      const missingCodes = new Set(knownCodes)
+      await Promise.all(
+        stickers.map((sticker) => updateItem(sticker.code, { collectionQty: missingCodes.has(sticker.code) ? 0 : 1 })),
+      )
+      setMessage(
+        `Imported ${knownCodes.length} missing codes${ignoredCount ? `, deleted ${ignoredCount} unknown` : ''}.`,
+      )
+      return
+    }
+
     await Promise.all(
-      Object.entries(counts).map(([code, count]) => {
-        const current = items[code] ?? emptyItem(album.id, code)
-        if (workMode === 'collection') {
-          return updateItem(code, { collectionQty: 1 })
-        }
-        return updateItem(code, { duplicateQty: current.duplicateQty + count })
-      }),
+      stickers.map((sticker) => updateItem(sticker.code, { duplicateQty: counts[sticker.code] ?? 0 })),
     )
 
     setMessage(
-      `Imported ${knownCodes.length} ${workMode} codes${ignoredCount ? `, deleted ${ignoredCount} unknown` : ''}.`,
+      `Imported ${knownCodes.length} spare codes${ignoredCount ? `, deleted ${ignoredCount} unknown` : ''}.`,
     )
   }
 
-  const exportCollection = () => {
+  const exportMissing = () => {
     const codes = stickers
       .map((sticker) => sticker.code)
-      .filter((code) => (items[code]?.collectionQty ?? 0) > 0)
+      .filter((code) => (items[code]?.collectionQty ?? 0) === 0)
     return formatStickerCodes(codes)
   }
 
-  const exportDuplicates = () => {
+  const exportSpares = () => {
     const entries = stickers.map((sticker) => ({
       code: sticker.code,
       qty: items[sticker.code]?.duplicateQty ?? 0,
     }))
-    return formatStickerCodes(repeatedCodes(entries))
+    return formatStickerQuantities(entries)
   }
 
   const copyText = async (text: string, label: string) => {
@@ -273,13 +279,13 @@ function App() {
             <SyncScreen
               importText={importText}
               message={message}
-              workMode={workMode}
+              importMode={syncImportMode}
               setImportText={setImportText}
-              setWorkMode={setWorkMode}
+              setImportMode={setSyncImportMode}
               importCodes={importCodes}
               copyText={copyText}
-              exportCollection={exportCollection}
-              exportDuplicates={exportDuplicates}
+              exportMissing={exportMissing}
+              exportSpares={exportSpares}
               downloadBackup={downloadBackup}
               resetAlbum={resetAlbum}
             />
