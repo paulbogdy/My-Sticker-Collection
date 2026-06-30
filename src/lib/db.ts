@@ -6,6 +6,7 @@ export type InventoryItem = {
   code: string
   collectionQty: number
   duplicateQty: number
+  sortOrder: number
   note: string
   updatedAt: string
 }
@@ -17,6 +18,9 @@ class StickerDatabase extends Dexie {
     super('my-sticker-collection')
     this.version(1).stores({
       inventory: 'id, albumId, code, updatedAt',
+    })
+    this.version(2).stores({
+      inventory: 'id, albumId, code, sortOrder, updatedAt',
     })
   }
 }

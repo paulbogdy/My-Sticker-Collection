@@ -132,6 +132,31 @@ textarea {
   line-height: 1;
 }
 
+.mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 2px;
+}
+
+.mode-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #d7dde8;
+  border-radius: 8px;
+  background: #fff;
+  color: #546179;
+  font-weight: 900;
+}
+
+.mode-tabs button.active {
+  border-color: #111827;
+  background: #111827;
+  color: #fff;
+}
+
 .toolbar {
   position: sticky;
   top: 0;
@@ -160,7 +185,8 @@ textarea {
 
 .segments {
   display: grid;
-  grid-template-columns: repeat(4, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(92px, auto);
   border: 1px solid #d7dde8;
   border-radius: 8px;
   overflow: hidden;
@@ -238,6 +264,28 @@ textarea {
   padding: 4px 0 14px;
 }
 
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  border: 1px dashed #c9d3e2;
+  border-radius: 8px;
+  background: #fff;
+  padding: 28px 18px;
+  color: #647086;
+  text-align: center;
+}
+
+.empty-state h2 {
+  margin-bottom: 0;
+  color: #172033;
+}
+
+.empty-state p {
+  max-width: 340px;
+  margin-bottom: 0;
+}
+
 .groups {
   display: grid;
   gap: 14px;
@@ -255,8 +303,9 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 14px;
+  padding: 15px 14px;
   border-bottom: 1px solid #edf1f6;
+  background: #fbfcfe;
 }
 
 .group-block h2 {
@@ -279,6 +328,37 @@ textarea {
   font-weight: 900;
 }
 
+.team-list {
+  display: grid;
+  gap: 0;
+}
+
+.team-block + .team-block {
+  border-top: 1px solid #edf1f6;
+}
+
+.team-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px 4px;
+}
+
+.team-header h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 0.96rem;
+  line-height: 1.2;
+}
+
+.team-header span {
+  flex: 0 0 auto;
+  color: #647086;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
 .sticker-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
@@ -286,13 +366,18 @@ textarea {
   padding: 10px;
 }
 
+.team-header + .sticker-grid {
+  padding-top: 8px;
+}
+
 .sticker-tile {
   display: grid;
-  grid-template-rows: 46px 38px;
+  grid-template-rows: 50px 40px;
   border: 1px solid #dfe5ef;
   border-radius: 8px;
   overflow: hidden;
   background: #f8fafc;
+  box-shadow: 0 1px 0 rgba(23, 32, 51, 0.03);
 }
 
 .owned-toggle {
@@ -300,15 +385,33 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: 90px;
   background: #fff;
   color: #1f2a44;
   padding: 0 10px;
   font-weight: 900;
+  transition: background 120ms ease, transform 120ms ease;
 }
 
 .sticker-tile.owned .owned-toggle {
   background: #f7c948;
   color: #111827;
+}
+
+.owned-toggle:active,
+.dupe-stepper button:active,
+.mode-tabs button:active,
+.sync-actions button:active {
+  transform: scale(0.98);
+}
+
+.dupe-code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #1f2a44;
+  font-weight: 900;
 }
 
 .dupe-stepper {
@@ -322,6 +425,11 @@ textarea {
   min-height: 38px;
   background: #edf1f6;
   color: #172033;
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.dupe-stepper button:hover {
+  background: #dfe5ef;
 }
 
 .dupe-stepper strong {
@@ -340,6 +448,7 @@ textarea {
   }
 
   .segments {
+    grid-auto-flow: row;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
