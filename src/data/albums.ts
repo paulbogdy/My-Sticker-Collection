@@ -51,7 +51,7 @@ export const albums: Album[] = [
         id: 'intro',
         title: 'Intro',
         subtitle: 'Album opening stickers',
-        stickers: [{ code: '00' }, ...range('FWC', 14)],
+        stickers: [{ code: '00' }, ...range('FWC', 8)],
       },
       group('A', [
         { code: 'MEX', name: 'Mexico' },
@@ -79,7 +79,7 @@ export const albums: Album[] = [
       ]),
       group('E', [
         { code: 'GER', name: 'Germany' },
-        { code: 'CUR', name: 'Curacao' },
+        { code: 'CUW', name: 'Curaçao' },
         { code: 'CIV', name: 'Ivory Coast' },
         { code: 'ECU', name: 'Ecuador' },
       ]),
@@ -126,10 +126,16 @@ export const albums: Album[] = [
         { code: 'PAN', name: 'Panama' },
       ]),
       {
+        id: 'world-cup-history',
+        title: 'FIFA World Cup History',
+        subtitle: 'History foil stickers',
+        stickers: range('FWC', 11, 9),
+      },
+      {
         id: 'coca-cola',
         title: 'Coca-Cola',
-        subtitle: 'Coca-Cola special stickers',
-        stickers: range('CC', 12),
+        subtitle: 'Coca-Cola Europe stickers',
+        stickers: range('CC-EU', 12),
       },
     ],
   },
