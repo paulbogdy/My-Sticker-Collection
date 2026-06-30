@@ -1,22 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Check,
-  Copy,
-  Download,
-  Minus,
-  Plus,
-  RotateCcw,
   Search,
   Sticker,
-  Upload,
 } from 'lucide-react'
 import './App.css'
-import { albums, getAlbumStickers, type Album, type Sticker as StickerItem, type StickerGroup } from './data/albums'
+import { AlbumPicker } from './components/AlbumPicker'
+import { BottomNav } from './components/BottomNav'
+import { ProgressSummary } from './components/ProgressSummary'
+import { QuickStats } from './components/Stats'
+import { StickerSection } from './components/StickerSection'
+import { SyncScreen } from './components/SyncScreen'
+import { albums, getAlbumStickers } from './data/albums'
 import { db, makeInventoryId, type InventoryItem } from './lib/db'
 import { formatStickerCodes, parseStickerCodes, repeatedCodes } from './lib/stickerText'
-
-type WorkMode = 'collection' | 'duplicates'
-type FilterMode = 'all' | 'missing' | 'owned' | 'duplicates'
+import type { AlbumStats, FilterMode, Screen, WorkMode } from './types'
 
 const now = () => new Date().toISOString()
 
@@ -31,34 +28,6 @@ const emptyItem = (albumId: string, code: string): InventoryItem => ({
   updatedAt: now(),
 })
 
-const groupByTeam = (stickers: StickerItem[]) => {
-  const blocks: Array<{ title?: string; stickers: StickerItem[] }> = []
-
-  stickers.forEach((sticker) => {
-    const lastBlock = blocks.at(-1)
-    if (lastBlock && lastBlock.title === sticker.label) {
-      lastBlock.stickers.push(sticker)
-      return
-    }
-
-    blocks.push({ title: sticker.label, stickers: [sticker] })
-  })
-
-  return blocks
-}
-
-const countForMode = (
-  stickers: StickerItem[],
-  items: Record<string, InventoryItem>,
-  workMode: WorkMode,
-) => {
-  if (workMode === 'duplicates') {
-    return stickers.filter((sticker) => (items[sticker.code]?.duplicateQty ?? 0) > 0).length
-  }
-
-  return stickers.filter((sticker) => (items[sticker.code]?.collectionQty ?? 0) > 0).length
-}
-
 function App() {
   const [albumId, setAlbumId] = useState(albums[0].id)
   const album = albums.find((candidate) => candidate.id === albumId) ?? albums[0]
@@ -66,6 +35,7 @@ function App() {
   const stickerCodes = useMemo(() => new Set(stickers.map((sticker) => sticker.code)), [stickers])
   const [items, setItems] = useState<Record<string, InventoryItem>>({})
   const [workMode, setWorkMode] = useState<WorkMode>('collection')
+  const [screen, setScreen] = useState<Screen>('collection')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<FilterMode>('all')
   const [importText, setImportText] = useState('')
@@ -89,7 +59,7 @@ function App() {
     }
   }, [album.id, stickerCodes])
 
-  const stats = useMemo(() => {
+  const stats = useMemo<AlbumStats>(() => {
     const collection = stickers.filter((sticker) => (items[sticker.code]?.collectionQty ?? 0) > 0).length
     const duplicateKinds = stickers.filter((sticker) => (items[sticker.code]?.duplicateQty ?? 0) > 0).length
     const duplicateTotal = stickers.reduce(
@@ -230,262 +200,96 @@ function App() {
     setMessage('Album data cleared.')
   }
 
+  const switchScreen = (nextScreen: Screen) => {
+    setScreen(nextScreen)
+    if (nextScreen !== 'sync') {
+      setWorkMode(nextScreen)
+      setFilter('all')
+    }
+  }
+
   return (
     <main className="app-shell">
-      <header className="hero">
-        <div>
-          <p className="eyebrow">Local-first PWA</p>
-          <h1>My Sticker Collection</h1>
-          <p className="hero-copy">{album.title} - {album.edition}</p>
+      <header className="app-header">
+        <div className="app-kicker">
+          <span>Sticker albums</span>
+          <strong>My collection</strong>
         </div>
-        <select value={albumId} onChange={(event) => setAlbumId(event.target.value)} aria-label="Album">
-          {albums.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {candidate.title}
-            </option>
-          ))}
-        </select>
+        <AlbumPicker albums={albums} selectedAlbumId={albumId} onSelect={setAlbumId} />
       </header>
 
-      <section className="stats-grid" aria-label="Album stats">
-        <Stat label="In collection" value={stats.collection} />
-        <Stat label={stats.seeded ? 'Missing' : 'Seeded'} value={stats.seeded ? stats.missing : 0} />
-        <Stat label="Duplicate types" value={stats.duplicateKinds} />
-        <Stat label="Dupes total" value={stats.duplicateTotal} />
-      </section>
+      <ProgressSummary album={album} stats={stats} />
+      <QuickStats stats={stats} />
 
-      <section className="mode-tabs" aria-label="Workspace">
-        <button
-          className={workMode === 'collection' ? 'active' : ''}
-          onClick={() => {
-            setWorkMode('collection')
-            setFilter('all')
-          }}
-          type="button"
-        >
-          <Check size={18} /> Collection
-        </button>
-        <button
-          className={workMode === 'duplicates' ? 'active' : ''}
-          onClick={() => {
-            setWorkMode('duplicates')
-            setFilter('all')
-          }}
-          type="button"
-        >
-          <Plus size={18} /> Duplicates
-        </button>
-      </section>
-
-      <section className="toolbar" aria-label="Sticker filters">
-        <label className="search-box">
-          <Search size={18} />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search MEX11, SUI, FWC..."
-            type="search"
-          />
-        </label>
-        <div className="segments" role="tablist" aria-label="Filter">
-          {(workMode === 'collection'
-            ? (['all', 'missing', 'owned'] as const)
-            : (['all', 'duplicates'] as const)
-          ).map((mode) => (
-            <button
-              key={mode}
-              className={filter === mode ? 'active' : ''}
-              onClick={() => setFilter(mode)}
-              type="button"
-            >
-              {mode}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="sync-panel" aria-label="Import and export">
-        <div className="panel-title">
-          <Upload size={19} />
-          <h2>LastSticker import/export</h2>
-        </div>
-        <textarea
-          value={importText}
-          onChange={(event) => setImportText(event.target.value)}
-          placeholder={`Paste ${workMode} codes: MEX11, SUI20, FWC1`}
-          rows={3}
+      {screen === 'sync' ? (
+        <SyncScreen
+          importText={importText}
+          message={message}
+          workMode={workMode}
+          setImportText={setImportText}
+          setWorkMode={setWorkMode}
+          importCodes={importCodes}
+          copyText={copyText}
+          exportCollection={exportCollection}
+          exportDuplicates={exportDuplicates}
+          downloadBackup={downloadBackup}
+          resetAlbum={resetAlbum}
         />
-        <div className="sync-actions">
-          <button type="button" onClick={importCodes}>
-            <Upload size={17} /> Import to {workMode}
-          </button>
-        </div>
-        <div className="sync-actions">
-          <button type="button" onClick={() => copyText(exportCollection(), 'Collection export')}>
-            <Copy size={17} /> Copy collection
-          </button>
-          <button type="button" onClick={() => copyText(exportDuplicates(), 'Duplicates export')}>
-            <Copy size={17} /> Copy duplicates
-          </button>
-        </div>
-        <div className="sync-actions">
-          <button type="button" onClick={downloadBackup}>
-            <Download size={17} /> Backup
-          </button>
-          <button className="danger" type="button" onClick={resetAlbum}>
-            <RotateCcw size={17} /> Reset
-          </button>
-        </div>
-        <p className="status-line">{message}</p>
-      </section>
-
-      <section className="album-note">
-        {stats.seeded ? `Seeded stickers: ${stats.seeded}` : 'No verified checklist seeded yet'}
-        {album.expectedTotal ? ` / LastSticker total: ${album.expectedTotal}` : ''}. {album.source}
-      </section>
-
-      {visibleGroups.length === 0 ? (
-        <section className="empty-state">
-          <Sticker size={32} />
-          <h2>No stickers here yet</h2>
-          <p>Paste a LastSticker comma-separated list above to start building this album locally.</p>
-        </section>
-      ) : null}
-
-      <section className="groups" aria-label="Sticker groups">
-        {visibleGroups.map((group) => (
-          <StickerSection
-            key={group.id}
-            album={album}
-            group={group}
-            items={items}
-            workMode={workMode}
-            onCollection={setCollection}
-            onDuplicate={changeDuplicate}
-          />
-        ))}
-      </section>
-    </main>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  )
-}
-
-function StickerSection({
-  album,
-  group,
-  items,
-  workMode,
-  onCollection,
-  onDuplicate,
-}: {
-  album: Album
-  group: StickerGroup
-  items: Record<string, InventoryItem>
-  workMode: WorkMode
-  onCollection: (code: string, owned: boolean) => void
-  onDuplicate: (code: string, delta: number) => void
-}) {
-  const activeCount = countForMode(group.stickers, items, workMode)
-  const teamBlocks = groupByTeam(group.stickers)
-  return (
-    <article className="group-block">
-      <header>
-        <div>
-          <h2>{group.title}</h2>
-          {group.subtitle ? <p>{group.subtitle}</p> : null}
-        </div>
-        <span>
-          {activeCount}/{group.stickers.length}
-        </span>
-      </header>
-      <div className="team-list">
-        {teamBlocks.map((block, index) => (
-          <TeamBlock
-            key={`${block.title ?? group.id}-${index}`}
-            album={album}
-            title={block.title}
-            stickers={block.stickers}
-            items={items}
-            workMode={workMode}
-            onCollection={onCollection}
-            onDuplicate={onDuplicate}
-          />
-        ))}
-      </div>
-    </article>
-  )
-}
-
-function TeamBlock({
-  album,
-  title,
-  stickers,
-  items,
-  workMode,
-  onCollection,
-  onDuplicate,
-}: {
-  album: Album
-  title?: string
-  stickers: StickerItem[]
-  items: Record<string, InventoryItem>
-  workMode: WorkMode
-  onCollection: (code: string, owned: boolean) => void
-  onDuplicate: (code: string, delta: number) => void
-}) {
-  const activeCount = countForMode(stickers, items, workMode)
-
-  return (
-    <section className="team-block">
-      {title ? (
-        <header className="team-header">
-          <h3>{title}</h3>
-          <span>{activeCount}/{stickers.length}</span>
-        </header>
-      ) : null}
-      <div className="sticker-grid">
-        {stickers.map((sticker) => {
-          const item = items[sticker.code] ?? emptyItem(album.id, sticker.code)
-          const owned = item.collectionQty > 0
-          return (
-            <div className={`sticker-tile ${owned ? 'owned' : ''}`} key={sticker.code}>
-              {workMode === 'collection' ? (
+      ) : (
+        <>
+          <section className="toolbar" aria-label="Sticker filters">
+            <label className="search-box">
+              <Search size={18} />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search MEX11, SUI, FWC..."
+                type="search"
+              />
+            </label>
+            <div className="segments" role="tablist" aria-label="Filter">
+              {(workMode === 'collection'
+                ? (['all', 'missing', 'owned'] as const)
+                : (['all', 'duplicates'] as const)
+              ).map((mode) => (
                 <button
-                  className="owned-toggle"
+                  key={mode}
+                  className={filter === mode ? 'active' : ''}
+                  onClick={() => setFilter(mode)}
                   type="button"
-                  onClick={() => onCollection(sticker.code, !owned)}
-                  aria-label={`${owned ? 'Remove' : 'Add'} ${sticker.code} from collection`}
                 >
-                  <span>{sticker.code}</span>
-                  {owned ? <Check size={18} /> : null}
+                  {mode}
                 </button>
-              ) : (
-                <>
-                  <div className="dupe-code">{sticker.code}</div>
-                  <div className="dupe-stepper" aria-label={`${sticker.code} duplicates`}>
-                    <button type="button" onClick={() => onDuplicate(sticker.code, -1)} aria-label="Remove duplicate">
-                      <Minus size={16} />
-                    </button>
-                    <strong>{item.duplicateQty}</strong>
-                    <button type="button" onClick={() => onDuplicate(sticker.code, 1)} aria-label="Add duplicate">
-                      <Plus size={16} />
-                    </button>
-                  </div>
-                </>
-              )}
+              ))}
             </div>
-          )
-        })}
-      </div>
-    </section>
+          </section>
+
+          {visibleGroups.length === 0 ? (
+            <section className="empty-state">
+              <Sticker size={32} />
+              <h2>No matching stickers</h2>
+              <p>Clear search or change filters to see more of the album.</p>
+            </section>
+          ) : null}
+
+          <section className="groups" aria-label="Sticker groups">
+            {visibleGroups.map((group) => (
+              <StickerSection
+                key={group.id}
+                album={album}
+                group={group}
+                items={items}
+                workMode={workMode}
+                onCollection={setCollection}
+                onDuplicate={changeDuplicate}
+              />
+            ))}
+          </section>
+        </>
+      )}
+
+      <BottomNav screen={screen} onSelect={switchScreen} />
+    </main>
   )
 }
 
