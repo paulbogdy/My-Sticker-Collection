@@ -36,7 +36,7 @@ const teamStickers = (team: Team): Sticker[] =>
 const group = (letter: string, teams: Team[]): StickerGroup => ({
   id: `group-${letter.toLowerCase()}`,
   title: `Group ${letter}`,
-  subtitle: teams.map((team) => team.name).join(' · '),
+  subtitle: teams.map((team) => team.name).join(' - '),
   stickers: teams.flatMap(teamStickers),
 })
 
@@ -79,7 +79,7 @@ export const albums: Album[] = [
       ]),
       group('E', [
         { code: 'GER', name: 'Germany' },
-        { code: 'CUW', name: 'Curaçao' },
+        { code: 'CUW', name: 'Curacao' },
         { code: 'CIV', name: 'Ivory Coast' },
         { code: 'ECU', name: 'Ecuador' },
       ]),
@@ -134,8 +134,8 @@ export const albums: Album[] = [
       {
         id: 'coca-cola',
         title: 'Coca-Cola',
-        subtitle: 'Coca-Cola Europe stickers',
-        stickers: range('CC-EU', 12),
+        subtitle: 'Coca-Cola stickers',
+        stickers: range('CC', 12),
       },
     ],
   },

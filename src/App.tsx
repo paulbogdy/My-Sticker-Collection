@@ -31,18 +31,6 @@ const emptyItem = (albumId: string, code: string): InventoryItem => ({
   updatedAt: now(),
 })
 
-const naturalCodeSort = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true })
-
-const orderedAlbumCodes = (seedCodes: string[], items: Record<string, InventoryItem>) => {
-  const seedSet = new Set(seedCodes)
-  const importedCodes = Object.values(items)
-    .filter((item) => !seedSet.has(item.code))
-    .sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || naturalCodeSort(a.code, b.code))
-    .map((item) => item.code)
-
-  return [...seedCodes, ...importedCodes]
-}
-
 const groupByTeam = (stickers: StickerItem[]) => {
   const blocks: Array<{ title?: string; stickers: StickerItem[] }> = []
 
@@ -87,19 +75,25 @@ function App() {
     let mounted = true
     db.inventory.where('albumId').equals(album.id).toArray().then((rows) => {
       if (!mounted) return
-      setItems(Object.fromEntries(rows.map((item) => [item.code, item])))
+      const knownRows = rows.filter((item) => stickerCodes.has(item.code))
+      const staleRows = rows.filter((item) => !stickerCodes.has(item.code))
+
+      if (staleRows.length > 0) {
+        db.inventory.bulkDelete(staleRows.map((item) => item.id))
+      }
+
+      setItems(Object.fromEntries(knownRows.map((item) => [item.code, item])))
     })
     return () => {
       mounted = false
     }
-  }, [album.id])
+  }, [album.id, stickerCodes])
 
   const stats = useMemo(() => {
-    const allCodes = Array.from(new Set([...stickers.map((sticker) => sticker.code), ...Object.keys(items)]))
-    const collection = allCodes.filter((code) => (items[code]?.collectionQty ?? 0) > 0).length
-    const duplicateKinds = allCodes.filter((code) => (items[code]?.duplicateQty ?? 0) > 0).length
-    const duplicateTotal = allCodes.reduce(
-      (total, code) => total + (items[code]?.duplicateQty ?? 0),
+    const collection = stickers.filter((sticker) => (items[sticker.code]?.collectionQty ?? 0) > 0).length
+    const duplicateKinds = stickers.filter((sticker) => (items[sticker.code]?.duplicateQty ?? 0) > 0).length
+    const duplicateTotal = stickers.reduce(
+      (total, sticker) => total + (items[sticker.code]?.duplicateQty ?? 0),
       0,
     )
     return {
@@ -154,28 +148,7 @@ function App() {
         stickers: group.stickers.filter((sticker) => matchesSticker(sticker.code)),
       }))
       .filter((group) => group.stickers.length > 0)
-      .concat(
-        (() => {
-          const imported = orderedAlbumCodes([], items)
-            .filter((code) => !stickerCodes.has(code))
-            .filter(matchesSticker)
-            .map((code) => ({ code }))
-
-          return imported.length
-            ? [
-                {
-                  id: 'imported-unlisted',
-                  title: stickers.length ? 'Imported / unlisted' : 'Imported stickers',
-                  subtitle: stickers.length
-                    ? 'Codes found in your data but not in the current verified checklist yet'
-                    : 'Temporary order from your first import. We will replace this with exact album sections.',
-                  stickers: imported,
-                },
-              ]
-            : []
-        })(),
-      )
-  }, [album.groups, filter, items, query, stickerCodes, stickers.length])
+  }, [album.groups, filter, items, query])
 
   const importCodes = async () => {
     const codes = parseStickerCodes(importText)
@@ -184,9 +157,15 @@ function App() {
       return
     }
 
-    const maxSortOrder = Math.max(-1, ...Object.values(items).map((item) => item.sortOrder ?? -1))
-    let nextSortOrder = maxSortOrder + 1
-    const counts = codes.reduce<Record<string, number>>((accumulator, code) => {
+    const knownCodes = codes.filter((code) => stickerCodes.has(code))
+    const ignoredCount = codes.length - knownCodes.length
+
+    if (knownCodes.length === 0) {
+      setMessage(`No matching album codes found${ignoredCount ? `; deleted ${ignoredCount} unknown codes.` : '.'}`)
+      return
+    }
+
+    const counts = knownCodes.reduce<Record<string, number>>((accumulator, code) => {
       accumulator[code] = (accumulator[code] ?? 0) + 1
       return accumulator
     }, {})
@@ -194,29 +173,29 @@ function App() {
     await Promise.all(
       Object.entries(counts).map(([code, count]) => {
         const current = items[code] ?? emptyItem(album.id, code)
-        const sortOrder = current.sortOrder === Number.MAX_SAFE_INTEGER ? nextSortOrder++ : current.sortOrder
         if (workMode === 'collection') {
-          return updateItem(code, { collectionQty: 1, sortOrder })
+          return updateItem(code, { collectionQty: 1 })
         }
-        return updateItem(code, { duplicateQty: current.duplicateQty + count, sortOrder })
+        return updateItem(code, { duplicateQty: current.duplicateQty + count })
       }),
     )
 
     setMessage(
-      `Imported ${codes.length} ${workMode} codes.`,
+      `Imported ${knownCodes.length} ${workMode} codes${ignoredCount ? `, deleted ${ignoredCount} unknown` : ''}.`,
     )
   }
 
   const exportCollection = () => {
-    const orderedCodes = orderedAlbumCodes(stickers.map((sticker) => sticker.code), items)
-    const codes = orderedCodes.filter((code) => (items[code]?.collectionQty ?? 0) > 0)
+    const codes = stickers
+      .map((sticker) => sticker.code)
+      .filter((code) => (items[code]?.collectionQty ?? 0) > 0)
     return formatStickerCodes(codes)
   }
 
   const exportDuplicates = () => {
-    const entries = orderedAlbumCodes(stickers.map((sticker) => sticker.code), items).map((code) => ({
-      code,
-      qty: items[code]?.duplicateQty ?? 0,
+    const entries = stickers.map((sticker) => ({
+      code: sticker.code,
+      qty: items[sticker.code]?.duplicateQty ?? 0,
     }))
     return formatStickerCodes(repeatedCodes(entries))
   }
@@ -231,7 +210,7 @@ function App() {
       version: 1,
       exportedAt: now(),
       albums: albums.map((candidate) => ({ id: candidate.id, title: candidate.title })),
-      inventory: Object.values(items),
+      inventory: Object.values(items).filter((item) => stickerCodes.has(item.code)),
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
