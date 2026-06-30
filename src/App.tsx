@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import {
-  Search,
+  ChevronDown,
   Sticker,
 } from 'lucide-react'
 import './App.css'
@@ -36,10 +37,11 @@ function App() {
   const [items, setItems] = useState<Record<string, InventoryItem>>({})
   const [workMode, setWorkMode] = useState<WorkMode>('collection')
   const [screen, setScreen] = useState<Screen>('collection')
-  const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<FilterMode>('all')
   const [importText, setImportText] = useState('')
   const [message, setMessage] = useState('Ready')
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     let mounted = true
@@ -58,6 +60,11 @@ function App() {
       mounted = false
     }
   }, [album.id, stickerCodes])
+
+  useEffect(() => {
+    setExpandedGroups(new Set())
+    setExpandedTeams(new Set())
+  }, [album.id])
 
   const stats = useMemo<AlbumStats>(() => {
     const collection = stickers.filter((sticker) => (items[sticker.code]?.collectionQty ?? 0) > 0).length
@@ -100,12 +107,10 @@ function App() {
   }
 
   const visibleGroups = useMemo(() => {
-    const normalizedQuery = query.trim().toUpperCase()
     const matchesSticker = (code: string) => {
       const item = items[code]
       const collectionQty = item?.collectionQty ?? 0
       const duplicateQty = item?.duplicateQty ?? 0
-      if (normalizedQuery && !code.includes(normalizedQuery)) return false
       if (filter === 'missing') return collectionQty === 0
       if (filter === 'owned') return collectionQty > 0
       if (filter === 'duplicates') return duplicateQty > 0
@@ -118,7 +123,7 @@ function App() {
         stickers: group.stickers.filter((sticker) => matchesSticker(sticker.code)),
       }))
       .filter((group) => group.stickers.length > 0)
-  }, [album.groups, filter, items, query])
+  }, [album.groups, filter, items])
 
   const importCodes = async () => {
     const codes = parseStickerCodes(importText)
@@ -202,93 +207,133 @@ function App() {
 
   const switchScreen = (nextScreen: Screen) => {
     setScreen(nextScreen)
-    if (nextScreen !== 'sync') {
+    if (nextScreen !== 'sync' && nextScreen !== 'albums') {
       setWorkMode(nextScreen)
       setFilter('all')
     }
   }
 
+  const selectAlbum = (nextAlbumId: string) => {
+    setAlbumId(nextAlbumId)
+    setScreen('collection')
+    setWorkMode('collection')
+    setFilter('all')
+  }
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups((previous) => {
+      const next = new Set(previous)
+      if (next.has(groupId)) {
+        next.delete(groupId)
+      } else {
+        next.add(groupId)
+      }
+      return next
+    })
+  }
+
+  const toggleTeam = (teamId: string) => {
+    setExpandedTeams((previous) => {
+      const next = new Set(previous)
+      if (next.has(teamId)) {
+        next.delete(teamId)
+      } else {
+        next.add(teamId)
+      }
+      return next
+    })
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
-        <div className="app-kicker">
-          <span>Sticker albums</span>
-          <strong>My collection</strong>
-        </div>
-        <AlbumPicker albums={albums} selectedAlbumId={albumId} onSelect={setAlbumId} />
+        <button
+          className="current-album-button"
+          type="button"
+          onClick={() => setScreen('albums')}
+          style={{ '--album-surface': album.theme.surface } as CSSProperties}
+        >
+          <span className="album-mark">{album.theme.mark}</span>
+          <span>
+            <strong>{album.title}</strong>
+            <small>{album.edition}</small>
+          </span>
+          <ChevronDown size={18} />
+        </button>
       </header>
 
-      <ProgressSummary album={album} stats={stats} />
-      <QuickStats stats={stats} />
-
-      {screen === 'sync' ? (
-        <SyncScreen
-          importText={importText}
-          message={message}
-          workMode={workMode}
-          setImportText={setImportText}
-          setWorkMode={setWorkMode}
-          importCodes={importCodes}
-          copyText={copyText}
-          exportCollection={exportCollection}
-          exportDuplicates={exportDuplicates}
-          downloadBackup={downloadBackup}
-          resetAlbum={resetAlbum}
-        />
+      {screen === 'albums' ? (
+        <AlbumPicker albums={albums} selectedAlbumId={albumId} onSelect={selectAlbum} />
       ) : (
         <>
-          <section className="toolbar" aria-label="Sticker filters">
-            <label className="search-box">
-              <Search size={18} />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search MEX11, SUI, FWC..."
-                type="search"
-              />
-            </label>
-            <div className="segments" role="tablist" aria-label="Filter">
-              {(workMode === 'collection'
-                ? (['all', 'missing', 'owned'] as const)
-                : (['all', 'duplicates'] as const)
-              ).map((mode) => (
-                <button
-                  key={mode}
-                  className={filter === mode ? 'active' : ''}
-                  onClick={() => setFilter(mode)}
-                  type="button"
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-          </section>
+          <ProgressSummary album={album} stats={stats} />
+          <QuickStats stats={stats} />
 
-          {visibleGroups.length === 0 ? (
-            <section className="empty-state">
-              <Sticker size={32} />
-              <h2>No matching stickers</h2>
-              <p>Clear search or change filters to see more of the album.</p>
-            </section>
-          ) : null}
+          {screen === 'sync' ? (
+            <SyncScreen
+              importText={importText}
+              message={message}
+              workMode={workMode}
+              setImportText={setImportText}
+              setWorkMode={setWorkMode}
+              importCodes={importCodes}
+              copyText={copyText}
+              exportCollection={exportCollection}
+              exportDuplicates={exportDuplicates}
+              downloadBackup={downloadBackup}
+              resetAlbum={resetAlbum}
+            />
+          ) : (
+            <>
+              <section className="toolbar" aria-label="Sticker filters">
+                <div className="segments" role="tablist" aria-label="Filter">
+                  {(workMode === 'collection'
+                    ? (['all', 'missing', 'owned'] as const)
+                    : (['all', 'duplicates'] as const)
+                  ).map((mode) => (
+                    <button
+                      key={mode}
+                      className={filter === mode ? 'active' : ''}
+                      onClick={() => setFilter(mode)}
+                      type="button"
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              </section>
 
-          <section className="groups" aria-label="Sticker groups">
-            {visibleGroups.map((group) => (
-              <StickerSection
-                key={group.id}
-                album={album}
-                group={group}
-                items={items}
-                workMode={workMode}
-                onCollection={setCollection}
-                onDuplicate={changeDuplicate}
-              />
-            ))}
-          </section>
+              {visibleGroups.length === 0 ? (
+                <section className="empty-state">
+                  <Sticker size={32} />
+                  <h2>No matching stickers</h2>
+                  <p>Clear search or change filters to see more of the album.</p>
+                </section>
+              ) : null}
+
+              <section className="groups" aria-label="Sticker groups">
+                {visibleGroups.map((group) => (
+                  <StickerSection
+                    key={group.id}
+                    album={album}
+                    group={group}
+                    items={items}
+                    isExpanded={expandedGroups.has(group.id)}
+                    expandedTeams={expandedTeams}
+                    workMode={workMode}
+                    onToggleGroup={() => toggleGroup(group.id)}
+                    onToggleTeam={toggleTeam}
+                    onCollection={setCollection}
+                    onDuplicate={changeDuplicate}
+                  />
+                ))}
+              </section>
+            </>
+          )}
         </>
       )}
 
-      <BottomNav screen={screen} onSelect={switchScreen} />
+      {screen !== 'albums' ? <BottomNav screen={screen} onSelect={switchScreen} /> : null}
     </main>
   )
 }

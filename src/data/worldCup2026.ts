@@ -66,12 +66,11 @@ const range = (prefix: string, count: number, start = 1): Sticker[] =>
   Array.from({ length: count }, (_, index) => ({ code: `${prefix}${index + start}` }))
 
 const teamStickers = (team: Team): Sticker[] =>
-  range(team.code, 20).map((sticker, index) => ({
+  range(team.code, 20).map((sticker) => ({
     ...sticker,
     label: team.name,
     flag: team.code,
     flagImage: flagImageForTeam(team.code),
-    shape: index === 12 ? 'team-view' : 'portrait',
     tone: 'team',
     accentColors: team.colors,
   }))
@@ -79,7 +78,10 @@ const teamStickers = (team: Team): Sticker[] =>
 const group = (letter: string, teams: Team[]): StickerGroup => ({
   id: `group-${letter.toLowerCase()}`,
   title: `Group ${letter}`,
-  subtitle: teams.map((team) => team.name).join(' - '),
+  flagImages: teams.flatMap((team) => {
+    const src = flagImageForTeam(team.code)
+    return src ? [{ src, alt: `${team.code} flag` }] : []
+  }),
   stickers: teams.flatMap(teamStickers),
 })
 
@@ -99,11 +101,8 @@ export const worldCup2026: Album = {
       title: 'Intro',
       subtitle: 'Album opening stickers',
       stickers: [
-        { code: '00', shape: 'landscape', tone: 'intro' },
-        { code: 'FWC1', shape: 'landscape', pair: 'top', tone: 'intro' },
-        { code: 'FWC2', shape: 'landscape', pair: 'bottom', tone: 'intro' },
-        { code: 'FWC3', shape: 'landscape', tone: 'intro' },
-        ...range('FWC', 5, 4).map((sticker) => ({ ...sticker, shape: 'portrait' as const, tone: 'intro' as const })),
+        { code: '00', tone: 'intro', mark: '26' },
+        ...range('FWC', 8).map((sticker) => ({ ...sticker, tone: 'intro' as const, mark: '26' })),
       ],
     },
     group('A', [
@@ -184,8 +183,8 @@ export const worldCup2026: Album = {
       subtitle: 'History foil stickers',
       stickers: range('FWC', 11, 9).map((sticker) => ({
         ...sticker,
-        shape: 'team-view' as const,
         tone: 'history' as const,
+        mark: 'FWC',
       })),
     },
     {
@@ -194,8 +193,8 @@ export const worldCup2026: Album = {
       subtitle: 'Coca-Cola stickers',
       stickers: range('CC', 12).map((sticker) => ({
         ...sticker,
-        shape: 'slim' as const,
         tone: 'sponsor' as const,
+        mark: 'CC',
       })),
     },
   ],

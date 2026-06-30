@@ -2,7 +2,7 @@ import type { InventoryItem } from './lib/db'
 
 export type WorkMode = 'collection' | 'duplicates'
 
-export type Screen = WorkMode | 'sync'
+export type Screen = WorkMode | 'sync' | 'albums'
 
 export type FilterMode = 'all' | 'missing' | 'owned' | 'duplicates'
 
@@ -11,8 +11,7 @@ export type Sticker = {
   label?: string
   flag?: string
   flagImage?: string
-  shape?: 'portrait' | 'team-view' | 'landscape' | 'slim'
-  pair?: 'top' | 'bottom'
+  mark?: string
   tone?: 'team' | 'intro' | 'history' | 'sponsor'
   accentColors?: string[]
 }
@@ -21,6 +20,10 @@ export type StickerGroup = {
   id: string
   title: string
   subtitle?: string
+  flagImages?: Array<{
+    src: string
+    alt: string
+  }>
   stickers: Sticker[]
 }
 
