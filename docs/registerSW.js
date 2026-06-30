@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/My-Sticker-Collection/sw.js', { scope: '/My-Sticker-Collection/' })})}
