@@ -4,7 +4,7 @@ export type WorkMode = 'collection' | 'duplicates'
 
 export type SyncImportMode = 'missing' | 'spares'
 
-export type Screen = WorkMode | 'sync' | 'albums'
+export type Screen = WorkMode | 'trades' | 'sync' | 'albums'
 
 export type FilterMode = 'all' | 'missing' | 'owned' | 'duplicates'
 

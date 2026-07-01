@@ -1,4 +1,4 @@
-import { ListChecks, Plus, Upload } from 'lucide-react'
+import { Handshake, Layers, ListChecks, Upload } from 'lucide-react'
 import type { Screen } from '../types'
 
 type BottomNavProps = {
@@ -9,17 +9,41 @@ type BottomNavProps = {
 export function BottomNav({ screen, onSelect }: BottomNavProps) {
   return (
     <nav className="bottom-nav" aria-label="Primary navigation">
-      <button className={screen === 'collection' ? 'active' : ''} onClick={() => onSelect('collection')} type="button">
-        <ListChecks size={19} />
-        <span>Collection</span>
+      <button
+        aria-label="Collection"
+        className={screen === 'collection' ? 'active' : ''}
+        onClick={() => onSelect('collection')}
+        title="Collection"
+        type="button"
+      >
+        <ListChecks size={22} />
       </button>
-      <button className={screen === 'duplicates' ? 'active' : ''} onClick={() => onSelect('duplicates')} type="button">
-        <Plus size={19} />
-        <span>Duplicates</span>
+      <button
+        aria-label="Duplicates"
+        className={screen === 'duplicates' ? 'active' : ''}
+        onClick={() => onSelect('duplicates')}
+        title="Duplicates"
+        type="button"
+      >
+        <Layers size={22} />
       </button>
-      <button className={screen === 'sync' ? 'active' : ''} onClick={() => onSelect('sync')} type="button">
-        <Upload size={19} />
-        <span>Sync</span>
+      <button
+        aria-label="Trades"
+        className={screen === 'trades' ? 'active' : ''}
+        onClick={() => onSelect('trades')}
+        title="Trades"
+        type="button"
+      >
+        <Handshake size={22} />
+      </button>
+      <button
+        aria-label="Sync"
+        className={screen === 'sync' ? 'active' : ''}
+        onClick={() => onSelect('sync')}
+        title="Sync"
+        type="button"
+      >
+        <Upload size={22} />
       </button>
     </nav>
   )
